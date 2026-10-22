@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인터랙티브 역사 연표 생성기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eef2ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas for image export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body class="h-full bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-200 flex flex-col">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex flex-wrap items-center justify-between gap-4 shadow-sm z-20">
+        <div class="flex items-center space-x-3">
+            <div class="bg-brand-600 text-white p-2.5 rounded-xl shadow-md">
+                <i class="fa-solid fa-timeline text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight">역사 연표 생성기</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400">나만의 인터랙티브 연표를 만들고 시각화하세요</p>
+            </div>
+        </div>
+
+        <!-- 액션 버튼 그룹 -->
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- 뷰 모드 전환 -->
+            <div class="bg-slate-100 dark:bg-slate-700 p-1 rounded-lg flex space-x-1">
+                <button id="viewHorizontalBtn" onclick="setViewMode('horizontal')" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-white dark:bg-slate-600 shadow-sm transition">
+                    <i class="fa-solid fa-arrows-alt-h mr-1"></i> 가로 뷰
+                </button>
+                <button id="viewVerticalBtn" onclick="setViewMode('vertical')" class="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-600 dark:text-slate-300 hover:text-slate-900 transition">
+                    <i class="fa-solid fa-arrows-alt-v mr-1"></i> 세로 뷰
+                </button>
+            </div>
+
+            <!-- 프리셋 로드 드롭다운 -->
+            <div class="relative group">
+                <button class="px-3.5 py-2 text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-folder-open text-brand-500"></i>
+                    <span>프리셋 로드</span>
+                    <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
+                </button>
+                <div class="absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1 hidden group-hover:block z-30">
+                    <button onclick="loadPreset('world')" class="w-full text-left px-4 py-2 text-xs hover:bg-brand-50 dark:hover:bg-slate-700 transition">🌍 세계사 주요 사건</button>
+                    <button onclick="loadPreset('korea')" class="w-full text-left px-4 py-2 text-xs hover:bg-brand-50 dark:hover:bg-slate-700 transition">🇰🇷 한국사 핵심 연표</button>
+                    <button onclick="loadPreset('tech')" class="w-full text-left px-4 py-2 text-xs hover:bg-brand-50 dark:hover:bg-slate-700 transition">🔬 과학 기술 발전사</button>
+                </div>
+            </div>
+
+            <!-- 내보내기 / 불러오기 -->
+            <button onclick="exportJSON()" class="px-3 py-2 text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition" title="JSON 백업">
+                <i class="fa-solid fa-download text-slate-500"></i> 백업
+            </button>
+            <label class="px-3 py-2 text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition cursor-pointer" title="JSON 불러오기">
+                <i class="fa-solid fa-upload text-slate-500"></i> 복원
+                <input type="file" id="importFile" accept=".json" onchange="importJSON(event)" class="hidden">
+            </label>
+            <button onclick="exportImage()" class="px-3 py-2 text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition" title="이미지로 저장">
+                <i class="fa-solid fa-image text-emerald-500"></i> 이미지 저장
+            </button>
+
+            <!-- 다크모드 토글 -->
+            <button onclick="toggleDarkMode()" class="p-2.5 text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition">
+                <i id="darkModeIcon" class="fa-solid fa-moon"></i>
+            </button>
+
+            <!-- 사건 추가 버튼 -->
+            <button onclick="openModal()" class="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-md shadow-brand-500/20 transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-plus"></i>
+                <span>사건 추가</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 필터 및 검색 바 -->
+    <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur border-b border-slate-200 dark:border-slate-700 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center space-x-2 flex-1 max-w-md">
+            <div class="relative w-full">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <i class="fa-solid fa-search"></i>
+                </span>
+                <input type="text" id="searchInput" oninput="handleSearch()" placeholder="사건명, 설명 또는 연도로 검색..." class="w-full pl-9 pr-4 py-2 text-xs bg-slate-100 dark:bg-slate-700 border border-transparent focus:border-brand-500 rounded-lg outline-none transition">
+            </div>
+        </div>
+        <div class="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0" id="categoryFilters">
+            <button onclick="filterCategory('all')" class="category-chip px-3 py-1.5 text-xs font-medium rounded-full bg-brand-600 text-white transition whitespace-nowrap">전체</button>
+            <button onclick="filterCategory('정치/전쟁')" class="category-chip px-3 py-1.5 text-xs font-medium rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 transition whitespace-nowrap">정치/전쟁</button>
+            <button onclick="filterCategory('문화/예술')" class="category-chip px-3 py-1.5 text-xs font-medium rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 transition whitespace-nowrap">문화/예술</button>
+            <button onclick="filterCategory('과학/기술')" class="category-chip px-3 py-1.5 text-xs font-medium rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 transition whitespace-nowrap">과학/기술</button>
+            <button onclick="filterCategory('기타')" class="category-chip px-3 py-1.5 text-xs font-medium rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 transition whitespace-nowrap">기타</button>
+        </div>
+    </div>
+
+    <!-- 메인 타임라인 캔버스 영역 -->
+    <main class="flex-1 overflow-auto p-6 md:p-10 relative" id="timelineContainer">
+        <div id="timelineContent" class="w-full h-full">
+            <!-- 자바스크립트로 렌더링됨 -->
+        </div>
+    </main>
+
+    <!-- 사건 추가/수정 모달 -->
+    <div id="eventModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all">
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 id="modalTitle" class="text-sm font-bold">새 역사 사건 추가</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg">&times;</button>
+            </div>
+            <form id="eventForm" onsubmit="saveEvent(event)" class="p-6 space-y-4">
+                <input type="hidden" id="eventId">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-400">연도 (숫자)</label>
+                        <input type="number" id="eventYear" required class="w-full px-3 py-2 text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-brand-500" placeholder="예: 1919">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-400">시기 구분</label>
+                        <select id="eventEra" class="w-full px-3 py-2 text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-brand-500">
+                            <option value="AD">서기 (AD)</option>
+                            <option value="BC">기원전 (BC)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-400">사건 제목</label>
+                    <input type="text" id="eventTitle" required class="w-full px-3 py-2 text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-brand-500" placeholder="예: 3·1 독립 운동">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-400">카테고리</label>
+                        <select id="eventCategory" class="w-full px-3 py-2 text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-brand-500">
+                            <option value="정치/전쟁">정치/전쟁</option>
+                            <option value="문화/예술">문화/예술</option>
+                            <option value="과학/기술">과학/기술</option>
+                            <option value="기타">기타</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-400">이미지 URL (선택)</label>
+                        <input type="url" id="eventImage" class="w-full px-3 py-2 text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-brand-500" placeholder="https://example.com/image.jpg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-400">상세 설명</label>
+                    <textarea id="eventDesc" rows="3" class="w-full px-3 py-2 text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-brand-500" placeholder="사건에 대한 상세한 설명을 입력하세요..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-400">관련 웹 링크 (선택)</label>
+                    <input type="url" id="eventLink" class="w-full px-3 py-2 text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-brand-500" placeholder="https://ko.wikipedia.org/wiki/...">
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-medium bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-lg transition">취소</button>
+                    <button type="submit" class="px-4 py-2 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow transition">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript 로직 -->
+    <script>
+        // 기본 프리셋 데이터
+        const presets = {
+            world: [
+                { id: 'w1', year: 3500, era: 'BC', title: '메소포타미아 설형문자 발명', category: '과학/기술', desc: '인류 최초의 문자 체계인 쇄기문자가 메소포타미아에서 탄생함.', image: '', link: '' },
+                { id: 'w2', year: 776, era: 'BC', title: '제1회 고대 올림픽 개최', category: '문화/예술', desc: '그리스 올림피아에서 제1회 올림픽 경기 대회가 시작됨.', image: '', link: '' },
+                { id: 'w3', year: 1450, era: 'AD', title: '구텐베르크 금속활자 인쇄기', category: '과학/기술', desc: '요하네스 구텐베르크가 활판 인쇄기를 발명하여 지식 대중화의 서막을 열다.', image: '', link: '' },
+                { id: 'w4', year: 1789, era: 'AD', title: '프랑스 혁명 발발', category: '정치/전쟁', desc: '자유, 평등, 박애의 이념 아래 프랑스 혁명이 일어나 절대왕정이 무너지다.', image: '', link: '' },
+                { id: 'w5', year: 1969, era: 'AD', title: '아폴로 11호 달 착륙', category: '과학/기술', desc: '인류가 최초로 달 표면에 발을 디디다 (닐 암스트롱).', image: '', link: '' }
+            ],
+            korea: [
+                { id: 'k1', year: 2333, era: 'BC', title: '단군 조선 건국 (추정)', category: '정치/전쟁', desc: '단군왕검이 홍익인간의 이념으로 고조선을 건국하다.', image: '', link: '' },
+                { id: 'k2', year: 57, era: 'BC', title: '신라 건국 (혁거세 거서간)', category: '정치/전쟁', desc: '한반도 동남쪽에 신라가 건국되다.', image: '', link: '' },
+                { id: 'k3', year: 1443, era: 'AD', title: '훈민정음(한글) 창제', category: '과학/기술', desc: '조선 세종대왕이 백성을 위해 우리 고유 문자 훈민정음을 창제하다.', image: '', link: '' },
+                { id: 'k4', year: 1592, era: 'AD', title: '임진왜란 발발', category: '정치/전쟁', desc: '일본의 조선 침략으로 7년간의 거대한 전쟁이 시작되다.', image: '', link: '' },
+                { id: 'k5', year: 1919, era: 'AD', title: '3·1 독립 운동 및 대한민국 임시정부 수립', category: '정치/전쟁', desc: '전국적으로 일제에 저항하는 평화적 만세 시위가 일어나고 임시정부가 수립되다.', image: '', link: '' }
+            ],
+            tech: [
+                { id: 't1', year: 1876, era: 'AD', title: '알렉산더 그레이엄 벨 전화기 특허', category: '과학/기술', desc: '음성을 전기 신호로 변환하여 소통하는 전화기가 발명되다.', image: '', link: '' },
+                { id: 't2', year: 1903, era: 'AD', title: '라이트 형제 동력 비행기 첫 비행', category: '과학/기술', desc: '인류 역사상 최초로 조종 가능한 동력 비행기가 하늘을 날다.', image: '', link: '' },
+                { id: 't3', year: 1946, era: 'AD', title: '세계 최초의 전자식 컴퓨터 ENIAC 개발', category: '과학/기술', desc: '군사 계산을 위해 진공관을 사용한 대형 컴퓨터 에니악이 가동되다.', image: '', link: '' },
+                { id: 't4', year: 1991, era: 'AD', title: '월드 와이드 웹(WWW) 공개', category: '과학/기술', desc: '팀 버너스 리에 의해 인터넷 웹 서비스가 일반에 공개되다.', image: '', link: '' }
+            ]
+        };
+
+        let events = JSON.parse(localStorage.getItem('history_timeline_events')) || presets.korea;
+        let viewMode = 'horizontal'; // 'horizontal' or 'vertical'
+        let currentFilter = 'all';
+        let searchQuery = '';
+
+        // 초기화
+        window.addEventListener('DOMContentLoaded', () => {
+            renderTimeline();
+            checkDarkModeInit();
+        });
+
+        // 정렬 함수 (연도 기준 오래된 순 -> 최신 순)
+        function getSortedEvents() {
+            return [...events].sort((a, b) => {
+                let yearA = a.era === 'BC' ? -a.year : a.year;
+                let yearB = b.era === 'BC' ? -b.year : b.year;
+                return yearA - yearB;
+            });
+        }
+
+        // 렌더링 메인 함수
+        function renderTimeline() {
+            const container = document.getElementById('timelineContent');
+            const sorted = getSortedEvents();
+
+            // 필터링 적용
+            const filtered = sorted.filter(item => {
+                const matchesCategory = currentFilter === 'all' || item.category === currentFilter;
+                const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      item.desc.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      item.year.toString().includes(searchQuery);
+                return matchesCategory && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-64 text-slate-400 space-y-2">
+                        <i class="fa-solid fa-folder-open text-3xl"></i>
+                        <p class="text-xs">조건에 일치하는 역사 사건이 없습니다.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (viewMode === 'horizontal') {
+                renderHorizontalView(filtered, container);
+            } else {
+                renderVerticalView(filtered, container);
+            }
+        }
+
+        // 카테고리 색상 지정 헬퍼
+        function getCategoryBadge(category) {
+            switch(category) {
+                case '정치/전쟁': return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300';
+                case '문화/예술': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
+                case '과학/기술': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300';
+                default: return 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+            }
+        }
+
+        // 가로 뷰 렌더링
+        function renderHorizontalView(items, container) {
+            let html = `
+                <div class="relative min-w-full py-10 px-4">
+                    <!-- 중앙 타임라인 가로선 -->
+                    <div class="absolute top-1/2 left-0 right-0 h-1 bg-brand-500/30 transform -translate-y-1/2 z-0 hidden md:block"></div>
+                    
+                    <div class="flex flex-col md:flex-row items-center justify-start md:space-x-12 space-y-8 md:space-y-0 overflow-x-auto pb-6">
+            `;
+
+            items.forEach((item, index) => {
+                const isTop = index % 2 === 0;
+                html += `
+                    <div class="relative flex flex-col items-center group min-w-[280px] max-w-[320px] w-full md:w-80 flex-shrink-0">
+                        <!-- 모바일용 선 -->
+                        <div class="h-8 w-1 bg-brand-500/30 md:hidden"></div>
+                        
+                        <!-- 카드 본체 -->
+                        <div class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-lg hover:shadow-xl transition relative z-10 flex flex-col">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="px-2.5 py-1 text-[10px] font-bold rounded-md ${getCategoryBadge(item.category)}">${item.category}</span>
+                                <span class="text-xs font-bold text-brand-600 dark:text-brand-400">${item.era} ${item.year}년</span>
+                            </div>
+                            <h3 class="text-sm font-bold mb-1.5 text-slate-900 dark:text-slate-100">${item.title}</h3>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3 line-clamp-3">${item.desc}</p>
+                            
+                            ${item.image ? `<div class="mb-3 rounded-lg overflow-hidden h-32 bg-slate-100 dark:bg-slate-700"><img src="${item.image}" alt="${item.title}" class="w-full h-full object-cover"></div>` : ''}
+
+                            <div class="mt-auto pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                                ${item.link ? `<a href="${item.link}" target="_blank" class="text-brand-600 dark:text-brand-400 hover:underline"><i class="fa-solid fa-link mr-1"></i>관련 링크</a>` : '<span></span>'}
+                                <div class="space-x-2">
+                                    <button onclick="editEvent('${item.id}')" class="text-slate-400 hover:text-brand-600 transition"><i class="fa-solid fa-pen"></i></button>
+                                    <button onclick="deleteEvent('${item.id}')" class="text-slate-400 hover:text-rose-600 transition"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 타임라인 포인트 아이콘 -->
+                        <div class="hidden md:flex w-8 h-8 rounded-full bg-brand-600 text-white items-center justify-center shadow-md my-4 z-10 ring-4 ring-white dark:ring-slate-900">
+                            <i class="fa-solid fa-circle text-[8px]"></i>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+            container.innerHTML = html;
+        }
+
+        // 세로 뷰 렌더링
+        function renderVerticalView(items, container) {
+            let html = `
+                <div class="relative max-w-3xl mx-auto py-6 px-4">
+                    <!-- 중앙 세로선 -->
+                    <div class="absolute top-0 bottom-0 left-6 md:left-1/2 w-1 bg-brand-500/30 transform -translate-x-1/2 z-0"></div>
+                    
+                    <div class="space-y-8 relative z-10">
+            `;
+
+            items.forEach((item, index) => {
+                const isEven = index % 2 === 0;
+                html += `
+                    <div class="flex flex-col md:flex-row items-start ${isEven ? 'md:flex-row-reverse' : ''} group">
+                        <!-- 날짜 배지 (중앙) -->
+                        <div class="absolute left-6 md:left-1/2 transform -translate-x-1/2 w-10 h-10 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-xs shadow-md ring-4 ring-slate-50 dark:ring-slate-900">
+                            ${item.era}
+                        </div>
+
+                        <!-- 카드 내용 -->
+                        <div class="ml-14 md:ml-0 md:w-[calc(50%-2rem)] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-lg hover:shadow-xl transition w-full">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="px-2.5 py-1 text-[10px] font-bold rounded-md ${getCategoryBadge(item.category)}">${item.category}</span>
+                                <span class="text-xs font-bold text-brand-600 dark:text-brand-400">${item.era} ${item.year}년</span>
+                            </div>
+                            <h3 class="text-sm font-bold mb-1.5 text-slate-900 dark:text-slate-100">${item.title}</h3>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">${item.desc}</p>
+
+                            ${item.image ? `<div class="mb-3 rounded-lg overflow-hidden h-36 bg-slate-100 dark:bg-slate-700"><img src="${item.image}" alt
